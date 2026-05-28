@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Drowsiness PREDICTION Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    background: linear-gradient(135deg, #0f172a, #020617);
+    color: #e2e8f0;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 220px;
+    background: rgba(15, 23, 42, 0.9);
+    padding: 20px;
+}
+
+/* Main */
+.main {
+    flex: 1;
+    padding: 20px 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+/* Cards */
+.card {
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 12px;
+}
+
+/* Graph Section */
+.graphs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+    flex: 1;
+}
+
+/* Canvas */
+canvas {
+    width: 100% !important;
+    height: 250px !important;
+}
+
+/* Status */
+.status {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.idle { background: gray; }
+.monitoring { background: blue; }
+.alert { background: red; }
+
+/* Buttons */
+button {
+    padding: 8px 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.start { background: green; color: white; }
+.stop { background: red; color: white; }
+
+/* Logs */
+.log-box {
+    height: 120px;
+    overflow-y: auto;
+}
+
+/* Banner */
+.banner {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: red;
+    padding: 10px 20px;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>🚗 DRIVER DROWSINESS</h2>
+</div>
+
+<div class="main">
+
+<div class="header">Driver Drowsiness Detection</div>
+
+<!-- TOP CARDS -->
+<div class="grid">
+
+<div class="card">
+    <div class="status">
+        <div id="dot" class="dot idle"></div>
+        <span id="status">Idle</span>
+    </div>
+
+    <button class="start" onclick="startDetection()">Start</button>
+    <button class="stop" onclick="stopDetection()">Stop</button>
+</div>
+
+<div class="card">
+    <div>Drowsiness Alerts</div>
+    <div id="count">0</div>
+</div>
+
+<div class="card">
+    <div>Yawns</div>
+    <div id="yawn">0</div>
+</div>
+
+<div class="card">
+    <div>Logs</div>
+    <div id="logs" class="log-box">No logs</div>
+</div>
+
+</div>
+
+<!-- GRAPH SECTION (NEW) -->
+<div class="graphs">
+
+<div class="card">
+    <div>Drowsiness Trend</div>
+    <canvas id="dChart"></canvas>
+</div>
+
+<div class="card">
+    <div>Yawn Trend</div>
+    <canvas id="yChart"></canvas>
+</div>
+
+</div>
+
+</div>
+
+<div class="banner" id="banner">⚠️ Drowsy!</div>
+
+<script>
+
+// BUTTONS
+function startDetection() {
+    fetch('/start');
+}
+
+function stopDetection() {
+    fetch('/stop');
+}
+
+// CHART DATA
+let labels=[], dData=[], yData=[];
+
+const dChart = new Chart(document.getElementById("dChart"), {
+    type: "line",
+    data: { labels, datasets: [{ label:"Drowsy", data:dData }] }
+});
+
+const yChart = new Chart(document.getElementById("yChart"), {
+    type: "line",
+    data: { labels, datasets: [{ label:"Yawn", data:yData }] }
+});
+
+// FETCH
+function fetchStatus(){
+    fetch('/status')
+    .then(res=>res.json())
+    .then(data=>{
+
+        document.getElementById("status").innerText=data.status;
+        document.getElementById("count").innerText=data.count;
+        document.getElementById("yawn").innerText=data.yawn;
+
+        let logs=document.getElementById("logs");
+        logs.innerHTML=data.logs.map(l=>`<p>${l}</p>`).join("");
+
+        let t=new Date().toLocaleTimeString();
+
+        labels.push(t);
+        dData.push(data.count);
+        yData.push(data.yawn);
+
+        if(labels.length>10){
+            labels.shift(); dData.shift(); yData.shift();
+        }
+
+        dChart.update();
+        yChart.update();
+
+        if(data.logs.length && data.logs.at(-1).includes("Eyes")){
+            showBanner();
+        }
+
+    });
+}
+
+function showBanner(){
+    let b=document.getElementById("banner");
+    const messages = ["⚠️ STOP THE VEHICLE ASIDE", "⚠️ YOU ARE LOOKING TIRED", "⚠️ TAKE SOME REST"];
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+    b.innerText = randomMessage;
+    b.style.display="block";
+    setTimeout(()=>b.style.display="none",2000);
+}
+
+setInterval(fetchStatus,1500);
+
+</script>
+
+</body>
+</html>
